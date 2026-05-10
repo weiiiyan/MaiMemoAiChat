@@ -6,61 +6,82 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MaiMemoAiChat is a Qt (C++ + QML) desktop application for English learning. It combines spaced repetition (from 默默背单词/Anki engines) with AI-powered learning scenarios for listening, speaking, reading, and writing practice.
 
-**Status**: Design phase — no source code yet. This repo only contains documentation (as a git submodule). Source code will be implemented under `src/`.
+**Status**: Early implementation — source code lives under `MaiMemoAiChat/`. Documentation is in `docs/` (git submodule).
+
+## Build
+
+```bash
+cd MaiMemoAiChat
+cmake -B build -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH=<path-to-qt6>
+cmake --build build
+```
+
+Requires: Qt 6.5+ (Core, Widgets), CMake 3.19+, C++17.
 
 ## Architecture (5 Modules)
 
 ```
 UI ──> AppCoordinator ──> SceneOrchestrator ──> AI Service
                      │──> DataSync ──> SpacedRepetitionEngine
-                     └──> Persistence (SQLite, settings, context)
+                     └──> Hold (Persistence)
 ```
 
-| Module | Responsibility |
-|--------|---------------|
-| UI | QML interface — chat view, session list, input area |
-| AppCoordinator | Defines interaction interfaces, coordinates workflows across modules |
-| Persistence | Centralized storage (SQLite for messages/sessions/memories), deduplication, async write |
-| SceneOrchestrator | Abstracts AI calls; generates learn scenes (listening/speaking/reading/writing) |
-| DataSync | Abstracts spaced repetition engine interface (默默背单词/Anki); syncs memory data bidirectionally |
+| Module | Interface | Responsibility |
+| ------ | --------- | -------------- |
+| UI | IUIModule | QML interface — chat view, session list, input area |
+| AppCoordinator | IAppCoordinator | Defines interaction interfaces, coordinates workflows across modules |
+| Hold | Hold | Centralized file-based storage, async write with debounce — see interface at `docs/02-系统设计/2.2-接口设计/持久化模块接口.md` |
+| SceneOrchestrator | ISceneOrchestrator | Abstracts AI calls; manages interactive learning sessions (reading/writing/listening/speaking) |
+| DataSync | IDataSync | Abstracts SRS engine interface (默默背单词/Anki); syncs memory data bidirectionally via MemEntry |
+
+Key architectural constraints:
+
+- **All storage goes through Hold** — no module touches the filesystem directly.
+- **Hold uses async writes** — writes are dispatched to a worker thread. Main thread reads from a pending-write cache or the filesystem. Writes are debounced (5s delay, reset on new write to same key).
+- **Hold stores binary blobs** — serialization is the caller's responsibility. Keys are `(namespace: List<String>, name: String)` pairs, where namespace is a path like `["sessions", "session-abc"]`.
+
+## Source Layout
+
+```
+MaiMemoAiChat/
+├── CMakeLists.txt       # Top-level build
+├── main.cpp / mainwindow.*  # Qt app entry point (scaffold)
+├── Hold/                # Persistence module (in progress)
+│   ├── Hold.h / Hold.cpp
+│   ├── HoldWorker.h / HoldWorker.cpp
+│   └── CMakeLists.txt
+└── (other modules TBD)
+```
+
+Modules map to the planned `src/` structure from docs: `core/` (Hold, AppCoordinator), `services/` (SceneOrchestrator, DataSync), `ui/` (QML), `models/` (MemEntry, etc.), `utils/`.
 
 ## Tech Stack
 
 - **Language**: C++17, QML (Qt 6.x)
-- **Build**: qmake or CMake
+- **Build**: CMake
 - **AI**: Anthropic Claude API (streaming)
-- **Storage**: SQLite
+- **Storage**: File-based (binary, one file per key under namespace directories)
 - **SRS Interface**: Custom adapter for 默默背单词 / Anki
 
 ## Coding Conventions
 
-- **Class names**: `PascalCase`
+- **Class names**: `PascalCase` — interfaces prefixed with `I` (e.g., `IDataSync`), except `Hold` which follows the PlantUML spec
 - **Methods**: `camelCase`
 - **Member variables**: `m_camelCase`
 - **Constants**: `UPPER_SNAKE_CASE`
 - **QML component files**: `PascalCase.qml`
-- **QML signals**: `camelCase`, verb-first
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`)
-
-## Source Directory Layout (planned)
-
-```
-src/
-├── core/           # Business logic (no UI dependency)
-├── models/         # Data models
-├── services/       # External service integrations (Claude API, SRS engine)
-├── ui/             # QML files
-└── utils/          # Utility classes
-```
-
-## Key Design Decisions
-
-- **Centralized persistence**: All storage goes through one module for unified backup/sync
-- **SRS adapter pattern**: `DataSync` abstracts the spaced repetition engine so the app doesn't depend on a specific provider
-- **AI scene orchestration**: `SceneOrchestrator` abstracts AI calls, generating learning scenarios from user memory data
-- **Memory injection**: Relevant memories are injected into AI context at conversation start; dynamic retrieval on explicit mention
-- **No hardcoded API keys**: All credentials via environment or config file
+- **No hardcoded API keys** — all credentials via environment or config file
+- **Comments**: Doxygen/JavaDoc 风格 (`/** ... */` / `@brief @param @return`)，关键逻辑和非显而易见的设计决策用中文注释
 
 ## Docs
 
-Documentation is maintained as a [separate repo](https://github.com/weiiiyan/MaiMemoAiChatDoc) mounted as a git submodule under `docs/`. Covers requirements, architecture, detailed design, testing, deployment, and project management.
+Documentation is maintained as a [separate repo](https://github.com/weiiiyan/MaiMemoAiChatDoc) mounted as a git submodule under `docs/`. Key docs:
+
+| Doc | Content |
+| --- | ------- |
+| `docs/02-系统设计/2.1-架构设计/2.1-架构设计.md` | Module responsibilities |
+| `docs/02-系统设计/2.2-接口设计/持久化模块接口.md` | Hold interface spec |
+| `docs/02-系统设计/2.2-接口设计/数据同步模块接口设计.md` | IDataSync + MemEntry spec |
+| `docs/02-系统设计/2.2-接口设计/学习场景编排模块接口设计.md` | ISceneOrchestrator + SceneSession spec |
+| `docs/02-系统设计/2.2-接口设计/应用协调模块接口设计.md` | IAppCoordinator spec |

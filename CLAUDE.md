@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MaiMemoAiChat is a Qt (C++ + QML) desktop application for English learning. It combines spaced repetition (from 默默背单词/Anki engines) with AI-powered learning scenarios for listening, speaking, reading, and writing practice.
+MaiMemoAiChat is a Qt (C++ + QML) desktop application for English learning. It combines spaced repetition (from 墨墨背单词/Anki engines) with AI-powered learning scenarios for listening, speaking, reading, and writing practice.
 
 **Status**: Early implementation — source code lives under `MaiMemoAiChat/`. Documentation is in `docs/` (git submodule).
 
@@ -32,7 +32,7 @@ UI ──> AppCoordinator ──> SceneOrchestrator ──> AI Service
 | AppCoordinator | IAppCoordinator | Defines interaction interfaces, coordinates workflows across modules |
 | Hold | Hold | Centralized file-based storage, async write with debounce — see interface at `docs/02-系统设计/2.2-接口设计/持久化模块接口.md` |
 | SceneOrchestrator | ISceneOrchestrator | Abstracts AI calls; manages interactive learning sessions (reading/writing/listening/speaking) |
-| DataSync | IDataSync | Abstracts SRS engine interface (默默背单词/Anki); syncs memory data bidirectionally via MemEntry |
+| DataSync | IDataSync | Abstracts SRS engine interface (墨墨背单词/Anki); syncs memory data bidirectionally via MemEntry |
 
 Key architectural constraints:
 
@@ -61,7 +61,7 @@ Modules map to the planned `src/` structure from docs: `core/` (Hold, AppCoordin
 - **Build**: CMake
 - **AI**: Anthropic Claude API (streaming)
 - **Storage**: File-based (binary, one file per key under namespace directories)
-- **SRS Interface**: Custom adapter for 默默背单词 / Anki
+- **SRS Interface**: Custom adapter for 墨墨背单词 / Anki
 
 ## Coding Conventions
 

@@ -7,6 +7,8 @@ qt_standard_project_setup()
 
 add_subdirectory(Hold)
 add_subdirectory(DataSync)
+add_subdirectory(SceneOrchestrator)
+add_subdirectory(AppCoordinator)
 
 qt_add_executable(MaiMemoAiChat
     WIN32 MACOSX_BUNDLE
@@ -22,6 +24,8 @@ target_link_libraries(MaiMemoAiChat
         Qt::Widgets
         Hold
         DataSync
+        SceneOrchestrator
+        AppCoordinator
 )
 
 install(TARGETS MaiMemoAiChat

@@ -30,11 +30,12 @@ AppCoordinator::~AppCoordinator()
 
 // ── 初始化 / 关闭 ──
 
-bool AppCoordinator::initialize(IUIModule *ui, const AppConfig &config)
+bool AppCoordinator::initialize(QObject *uiObject, IUIModule *ui, const AppConfig &config)
 {
     if (m_initialized)
         return false;
 
+    m_uiObject = uiObject;
     m_ui = ui;
     m_config = config;
 
@@ -233,17 +234,19 @@ void AppCoordinator::createSubModules(const AppConfig &config)
 
 void AppCoordinator::connectUiSignals()
 {
-    if (!m_ui)
+    if (!m_uiObject)
         return;
 
-    connect(m_ui, &IUIModule::messageSent,
-            this, &AppCoordinator::onMessageSent);
-    connect(m_ui, &IUIModule::reviewRequested,
-            this, &AppCoordinator::onReviewRequested);
-    connect(m_ui, &IUIModule::reviewAnswered,
-            this, &AppCoordinator::onReviewAnswered);
-    connect(m_ui, &IUIModule::settingsChanged,
-            this, &AppCoordinator::onSettingsChanged);
+    // 使用 SIGNAL/SLOT 宏——因 IUIModule 已去除 QObject 继承，
+    // 信号声明在 MainWindow（m_uiObject）上，需运行时字符串匹配
+    connect(m_uiObject, SIGNAL(messageSent(QString,QString)),
+            this, SLOT(onMessageSent(QString,QString)));
+    connect(m_uiObject, SIGNAL(reviewRequested()),
+            this, SLOT(onReviewRequested()));
+    connect(m_uiObject, SIGNAL(reviewAnswered(QString,qint64,int)),
+            this, SLOT(onReviewAnswered(QString,qint64,int)));
+    connect(m_uiObject, SIGNAL(settingsChanged(SRSConfig)),
+            this, SLOT(onSettingsChanged(SRSConfig)));
 }
 
 void AppCoordinator::connectSceneOrchestratorSignals()

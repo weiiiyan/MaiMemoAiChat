@@ -34,8 +34,10 @@ public:
     explicit IAppCoordinator(QObject *parent = nullptr) : QObject(parent) {}
     ~IAppCoordinator() override = default;
 
-    /// 初始化应用：加载配置 → 初始化子模块 → 连接 IUIModule 信号 → 恢复上次会话
-    virtual bool initialize(IUIModule *ui, const AppConfig &config) = 0;
+    /// 初始化应用：加载配置 → 初始化子模块 → 连接信号 → 恢复上次会话
+    /// @param uiObject QObject 指针（MainWindow），用于 connect() 信号连接
+    /// @param ui       IUIModule 接口指针，用于调用 UI 方法（与 uiObject 指向同一对象）
+    virtual bool initialize(QObject *uiObject, IUIModule *ui, const AppConfig &config) = 0;
 
     /// 安全关闭：保存状态 → 断开引擎 → 释放资源
     virtual void shutdown() = 0;

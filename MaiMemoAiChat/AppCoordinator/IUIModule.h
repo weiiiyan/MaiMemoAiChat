@@ -1,22 +1,21 @@
 #pragma once
 
-#include <QObject>
-#include "../DataSync/MemEntry.h"
+#include <QString>
 
 /**
- * @brief UI 模块抽象接口 — AppCoordinator 通过此接口驱动 UI 变更
+ * @brief UI 模块纯虚接口 — AppCoordinator 通过此接口驱动 UI 变更
  *
  * 双向协作：
  * - AppCoordinator 调用 IUIModule 方法更新 UI 状态
- * - IUIModule 通过信号触发 AppCoordinator 编排业务流程
+ * - 实现类（MainWindow）通过自身信号触发 AppCoordinator 编排业务流程
+ *
+ * 注意：此接口不继承 QObject，信号由实现类（MainWindow）直接声明，
+ * 以避免 QMainWindow + QObject 的多继承菱形问题。
  */
-class IUIModule : public QObject
+class IUIModule
 {
-    Q_OBJECT
-
 public:
-    explicit IUIModule(QObject *parent = nullptr) : QObject(parent) {}
-    ~IUIModule() override = default;
+    virtual ~IUIModule() = default;
 
     /// 展示指定会话的对话界面（复习/学习）
     virtual void showChatView(const QString &sessionId) = 0;
@@ -32,17 +31,4 @@ public:
 
     /// 更新初始化状态指示
     virtual void setInitialized(bool initialized) = 0;
-
-signals:
-    /// 用户在对话中输入消息
-    void messageSent(const QString &sessionId, const QString &content);
-
-    /// 用户点击"开始复习"按钮
-    void reviewRequested();
-
-    /// 用户对复习卡片评分（目前通过对话形式，后续可能扩展独立 review 界面）
-    void reviewAnswered(const QString &sessionId, qint64 cardId, int ease);
-
-    /// 用户更改了 SRS 配置
-    void settingsChanged(const SRSConfig &config);
 };

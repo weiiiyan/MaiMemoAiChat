@@ -28,7 +28,7 @@ public:
     explicit AppCoordinator(QObject *parent = nullptr);
     ~AppCoordinator() override;
 
-    bool initialize(IUIModule *ui, const AppConfig &config) override;
+    bool initialize(QObject *uiObject, IUIModule *ui, const AppConfig &config) override;
     void shutdown() override;
     bool isInitialized() const override;
     void startReview() override;
@@ -59,7 +59,8 @@ private:
     bool m_initialized = false;
     QString m_currentSessionId;               ///< 当前活跃的学习会话 ID
 
-    IUIModule *m_ui = nullptr;
+    QObject *m_uiObject = nullptr;             ///< 用于 connect() 信号连接（MainWindow）
+    IUIModule *m_ui = nullptr;                 ///< 用于调用 UI 方法
     Hold *m_hold = nullptr;
     IDataSync *m_dataSync = nullptr;
     ISceneOrchestrator *m_sceneOrchestrator = nullptr;

@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.19)
 project(MaiMemoAiChat LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network)
 
 qt_standard_project_setup()
 
 add_subdirectory(Hold)
+add_subdirectory(DataSync)
 
 qt_add_executable(MaiMemoAiChat
     WIN32 MACOSX_BUNDLE
@@ -20,6 +21,7 @@ target_link_libraries(MaiMemoAiChat
         Qt::Core
         Qt::Widgets
         Hold
+        DataSync
 )
 
 install(TARGETS MaiMemoAiChat

@@ -7,7 +7,7 @@
  * @brief Hold 的文件 I/O 工作对象，驻留在 worker 线程。
  *
  * 所有磁盘操作在此对象中执行，通过 Qt 跨线程信号槽与主线程 Hold 通信。
- * 使用 QTemporaryFile + rename 策略保证写入原子性。
+ * 使用 QSaveFile 保证写入原子性。
  */
 class HoldWorker : public QObject
 {

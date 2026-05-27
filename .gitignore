@@ -1,0 +1,27 @@
+# Build directories
+build*/
+
+# IDE
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Qt / CMake generated files (root level)
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+Makefile*
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.cmake
+!CMakeLists.txt

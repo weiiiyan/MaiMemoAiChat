@@ -1,8 +1,6 @@
 add_library(Hold STATIC
     Hold.h
     Hold.cpp
-    HoldWorker.h
-    HoldWorker.cpp
 )
 
 target_include_directories(Hold PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

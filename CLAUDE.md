@@ -86,14 +86,14 @@ UI ──> AppCoordinator ──> SceneOrchestrator ──> AI Service
 | ------ | --------- | -------------- |
 | UI | IUIModule | QML interface — chat view, session list, input area |
 | AppCoordinator | IAppCoordinator | Defines interaction interfaces, coordinates workflows across modules |
-| Hold | Hold | Centralized file-based storage, async write with debounce — see interface at `docs/02-系统设计/2.2-接口设计/持久化模块接口.md` |
+| Hold | Hold | Centralized file-based storage, synchronous atomic writes — see interface at `docs/02-系统设计/2.2-接口设计/持久化模块接口.md` |
 | SceneOrchestrator | ISceneOrchestrator | Abstracts AI calls; manages interactive learning sessions (reading/writing/listening/speaking) |
 | DataSync | IDataSync | Abstracts SRS engine interface (墨墨背单词/Anki); syncs memory data bidirectionally via MemEntry |
 
 Key architectural constraints:
 
 - **All storage goes through Hold** — no module touches the filesystem directly.
-- **Hold uses async writes** — writes are dispatched to a worker thread. Main thread reads from a pending-write cache or the filesystem. Writes are debounced (5s delay, reset on new write to same key).
+- **Hold uses synchronous writes** — all I/O is direct, using QSaveFile for atomic writes.
 - **Hold stores binary blobs** — serialization is the caller's responsibility. Keys are `(namespace: List<String>, name: String)` pairs, where namespace is a path like `["sessions", "session-abc"]`.
 
 ## Source Layout
@@ -104,7 +104,6 @@ MaiMemoAiChat/
 ├── main.cpp / mainwindow.*  # Qt app entry point (scaffold)
 ├── Hold/                # Persistence module (in progress)
 │   ├── Hold.h / Hold.cpp
-│   ├── HoldWorker.h / HoldWorker.cpp
 │   └── CMakeLists.txt
 └── (other modules TBD)
 ```

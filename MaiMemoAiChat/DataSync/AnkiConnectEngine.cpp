@@ -313,7 +313,16 @@ QNetworkReply *AnkiConnectEngine::sendRequest(const QString &action,
 
     QNetworkRequest req{QUrl(m_url)};
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
-    return m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    req.setTransferTimeout(10000); // 10s 超时，避免永久挂起
+    QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+
+    // 网络层错误转发为 engineError，避免调用方永久等待
+    connect(reply, &QNetworkReply::errorOccurred, this, [this, reply](QNetworkReply::NetworkError) {
+        if (!reply->errorString().isEmpty())
+            emit engineError(QStringLiteral("[%1] %2").arg(reply->url().toString(), reply->errorString()));
+    });
+
+    return reply;
 }
 
 bool AnkiConnectEngine::handleResponseError(const QJsonObject &response)

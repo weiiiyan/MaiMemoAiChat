@@ -18,6 +18,10 @@ DataSync::DataSync(ISRSEngine *engine, Hold *hold, QObject *parent)
     connect(m_engine, &ISRSEngine::disconnected, this, &IDataSync::disconnected);
     connect(m_engine, &ISRSEngine::engineError, this, [this](const QString &msg) {
         errorOccurred({QStringLiteral("engine"), msg});
+        // 引擎错误若发生在同步过程中，需终止同步以防调用方永远等待
+        if (m_syncCtx && m_syncCtx->step != SyncStep::Idle) {
+            finishSyncWithError(msg);
+        }
     });
 
     // 转发发现类信号

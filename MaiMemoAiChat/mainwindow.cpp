@@ -6,7 +6,6 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QDateTime>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -51,11 +50,24 @@ void MainWindow::setDueEntryCount(int count)
     m_dueLabel->setText(QStringLiteral("Due: %1").arg(count));
 }
 
-void MainWindow::setInitialized(bool initialized)
+void MainWindow::showStatus(const QString &status)
 {
-    m_statusLabel->setText(initialized ? QStringLiteral("Ready") : QStringLiteral("Offline"));
-    m_reviewBtn->setEnabled(initialized);
-    m_sendBtn->setEnabled(initialized);
+    m_statusLabel->setText(status);
+
+    // 连接就绪后启用操作按钮
+    bool ready = status.startsWith(QStringLiteral("Ready"));
+    m_reviewBtn->setEnabled(ready || status == QStringLiteral("In session"));
+    m_sendBtn->setEnabled(true); // 始终可输入，发送时由 AppCoordinator 判断
+}
+
+void MainWindow::appendSystemMessage(const QString &message)
+{
+    QTextCursor cursor = m_chatView->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    if (!m_chatView->document()->isEmpty())
+        cursor.insertText(QStringLiteral("\n"));
+    cursor.insertText(QStringLiteral("[System] %1").arg(message));
+    m_chatView->ensureCursorVisible();
 }
 
 // ── 私有 slot ──

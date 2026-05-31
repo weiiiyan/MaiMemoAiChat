@@ -29,6 +29,9 @@ public:
     /// 更新到期条目数（角标/提示）
     virtual void setDueEntryCount(int count) = 0;
 
-    /// 更新初始化状态指示
-    virtual void setInitialized(bool initialized) = 0;
+    /// 更新状态栏文本（用于展示连接进度、同步状态等）
+    virtual void showStatus(const QString &status) = 0;
+
+    /// 在聊天区追加一条系统消息（提示/错误/进度，非用户和 AI 消息）
+    virtual void appendSystemMessage(const QString &message) = 0;
 };

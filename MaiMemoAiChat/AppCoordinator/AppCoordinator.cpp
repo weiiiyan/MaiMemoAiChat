@@ -39,31 +39,32 @@ bool AppCoordinator::initialize(QObject *uiObject, IUIModule *ui, const AppConfi
     m_ui = ui;
     m_config = config;
 
-    // 1. 加载持久化的配置（覆盖默认值）
     loadConfig(m_config);
-
-    // 2. 创建子模块（Hold → DataSync → SceneOrchestrator）
     createSubModules(m_config);
-
-    // 3. 连接 IUIModule 信号 → AppCoordinator 内部 slot
     connectUiSignals();
-
-    // 4. 连接 SceneOrchestrator 信号 → 转发到 UI
     connectSceneOrchestratorSignals();
-
-    // 5. 连接 SRS 引擎并全量同步（异步，不阻塞 initialize 返回）
-    m_dataSync->connectToEngine(m_config.srsConfig);
-    m_dataSync->fullSync();
-
-    // 6. 恢复上次会话状态
-    restoreLastSession();
 
     m_initialized = true;
 
     if (m_ui) {
-        m_ui->setInitialized(true);
+        m_ui->showStatus(QStringLiteral("Connecting to Anki..."));
         m_ui->setDueEntryCount(dueEntryCount());
+        m_ui->appendSystemMessage(
+            QStringLiteral("App initialized.\n"
+                           "AI provider: %1, model: %2\n"
+                           "SRS: %3 @ %4")
+                .arg(config.sceneConfig.aiProvider == AiProvider::QianWen
+                         ? QStringLiteral("QianWen") : QStringLiteral("WenXin"))
+                .arg(config.sceneConfig.model)
+                .arg(config.srsConfig.deckName)
+                .arg(config.srsConfig.url));
     }
+
+    // 异步连接 Anki——connected 信号到来时才 fullSync
+    if (m_dataSync)
+        m_dataSync->connectToEngine(m_config.srsConfig);
+
+    restoreLastSession();
 
     return true;
 }
@@ -89,8 +90,10 @@ void AppCoordinator::shutdown()
     m_currentSessionId.clear();
     m_initialized = false;
 
-    if (m_ui)
-        m_ui->setInitialized(false);
+    if (m_ui) {
+        m_ui->showStatus(QStringLiteral("Offline"));
+        m_ui->setDueEntryCount(0);
+    }
 }
 
 bool AppCoordinator::isInitialized() const
@@ -105,21 +108,28 @@ void AppCoordinator::startReview()
     if (!m_initialized || !m_dataSync || !m_sceneOrchestrator)
         return;
 
-    // 已有活跃会话则先结束
     if (!m_currentSessionId.isEmpty()) {
         m_sceneOrchestrator->endSession(m_currentSessionId);
         m_currentSessionId.clear();
     }
 
     QList<MemEntry> dueEntries = m_dataSync->getDueEntries(m_config.dueEntryLimit);
-    if (dueEntries.isEmpty())
+    if (dueEntries.isEmpty()) {
+        if (m_ui) {
+            m_ui->appendSystemMessage(
+                QStringLiteral("No due entries. Please sync with Anki first (Anki must be running with AnkiConnect plugin)."));
+        }
         return;
+    }
 
     QString sessionId = m_sceneOrchestrator->createSession(
         dueEntries, m_config.defaultSceneType, m_config.sceneConfig);
 
     m_currentSessionId = sessionId;
     saveLastSession(sessionId);
+
+    if (m_ui)
+        m_ui->showStatus(QStringLiteral("Creating session..."));
 }
 
 int AppCoordinator::dueEntryCount() const
@@ -165,6 +175,35 @@ void AppCoordinator::onSettingsChanged(const SRSConfig &config)
     saveConfig();
 }
 
+// ── DataSync 状态处理 ──
+
+void AppCoordinator::onDataSyncConnected()
+{
+    if (m_ui) {
+        m_ui->showStatus(QStringLiteral("Syncing..."));
+        m_ui->appendSystemMessage(QStringLiteral("Anki connected. Starting sync..."));
+    }
+
+    if (m_dataSync)
+        m_dataSync->fullSync();
+}
+
+void AppCoordinator::onDataSyncDisconnected()
+{
+    if (m_ui) {
+        m_ui->showStatus(QStringLiteral("Anki not connected"));
+        m_ui->appendSystemMessage(QStringLiteral("Anki disconnected. Check if Anki is running with AnkiConnect plugin."));
+    }
+}
+
+void AppCoordinator::onDataSyncError(const SyncError &error)
+{
+    if (m_ui) {
+        m_ui->showStatus(QStringLiteral("Error: %1").arg(error.message));
+        m_ui->appendSystemMessage(QStringLiteral("Sync error [%1]: %2").arg(error.code, error.message));
+    }
+}
+
 // ── SceneOrchestrator 信号转发 / 处理 ──
 
 void AppCoordinator::onSessionCreated(const QString &sessionId, const QString &openingMessage)
@@ -174,6 +213,7 @@ void AppCoordinator::onSessionCreated(const QString &sessionId, const QString &o
 
     m_currentSessionId = sessionId;
     saveLastSession(sessionId);
+    m_ui->showStatus(QStringLiteral("In session"));
     m_ui->showChatView(sessionId);
     m_ui->showMessage(sessionId, openingMessage);
 }
@@ -214,20 +254,29 @@ void AppCoordinator::onSessionEnded(const QString &sessionId)
 
 void AppCoordinator::createSubModules(const AppConfig &config)
 {
-    // Hold: 数据根目录
     m_hold = new Hold(config.dataDir, this);
 
-    // DataSync: AnkiConnect 引擎 + Hold 缓存
     auto *engine = new AnkiConnectEngine(this);
     m_dataSync = new DataSync(engine, m_hold, this);
 
-    // 监听 DataSync 同步完成 → 刷新 UI 条目数
-    connect(m_dataSync, &IDataSync::syncFinished, this, [this](const SyncReport &) {
-        if (m_ui)
+    // DataSync 状态 → UI 反馈
+    connect(m_dataSync, &IDataSync::connected,
+            this, &AppCoordinator::onDataSyncConnected);
+    connect(m_dataSync, &IDataSync::disconnected,
+            this, &AppCoordinator::onDataSyncDisconnected);
+    connect(m_dataSync, &IDataSync::errorOccurred,
+            this, &AppCoordinator::onDataSyncError);
+    connect(m_dataSync, &IDataSync::syncFinished, this, [this](const SyncReport &r) {
+        if (m_ui) {
             m_ui->setDueEntryCount(dueEntryCount());
+            if (r.errors.isEmpty()) {
+                m_ui->showStatus(QStringLiteral("Ready (%1 entries, pulled %2)")
+                    .arg(dueEntryCount()).arg(r.notesPulled));
+            }
+            // 若有错误，保留 onDataSyncError 设置的错误状态
+        }
     });
 
-    // SceneOrchestrator: AI 交互管理
     m_sceneOrchestrator = new SceneOrchestrator(this);
     m_sceneOrchestrator->configure(config.sceneConfig);
 }

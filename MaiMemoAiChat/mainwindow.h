@@ -23,7 +23,8 @@ public:
     void showMessage(const QString &sessionId, const QString &message) override;
     void showSummary(const QString &sessionId) override;
     void setDueEntryCount(int count) override;
-    void setInitialized(bool initialized) override;
+    void showStatus(const QString &status) override;
+    void appendSystemMessage(const QString &message) override;
 
 signals:
     void messageSent(const QString &sessionId, const QString &content);

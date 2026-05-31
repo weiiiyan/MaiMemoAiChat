@@ -40,6 +40,10 @@ private slots:
     void onReviewAnswered(const QString &sessionId, qint64 cardId, int ease);
     void onSettingsChanged(const SRSConfig &config);
 
+    void onDataSyncConnected();
+    void onDataSyncDisconnected();
+    void onDataSyncError(const SyncError &error);
+
     void onSessionCreated(const QString &sessionId, const QString &openingMessage);
     void onResponseStreaming(const QString &sessionId, const QString &chunk);
     void onResponseComplete(const QString &sessionId, const QString &message);

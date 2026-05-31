@@ -15,7 +15,6 @@ qt_add_executable(MaiMemoAiChat
     main.cpp
     mainwindow.cpp
     mainwindow.h
-    mainwindow.ui
 )
 
 target_link_libraries(MaiMemoAiChat

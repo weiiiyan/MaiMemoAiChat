@@ -36,7 +36,6 @@ public:
     bool exists(const QStringList &id, const QString &name) const;
 
 private:
-    static QString makeKey(const QStringList &id, const QString &name);
     QString filePath(const QStringList &id, const QString &name) const;
 
     QString m_dataDir;

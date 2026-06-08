@@ -42,11 +42,6 @@ bool Hold::exists(const QStringList &id, const QString &name) const
     return QFile::exists(filePath(id, name));
 }
 
-QString Hold::makeKey(const QStringList &id, const QString &name)
-{
-    return id.join(QLatin1Char('/')) + QLatin1Char('/') + name;
-}
-
 QString Hold::filePath(const QStringList &id, const QString &name) const
 {
     return m_dataDir + QLatin1Char('/') + id.join(QLatin1Char('/')) + QLatin1Char('/') + name;

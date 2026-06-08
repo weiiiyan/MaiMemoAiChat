@@ -1,12 +1,13 @@
 #include "mainwindow.h"
 #include "AppCoordinator.h"
 #include "IAppCoordinator.h"
+#include "Hold/Hold.h"
+#include "LogManage.h"
 
 #include <QApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QProcessEnvironment>
-#include <QDebug>
 
 int main(int argc, char *argv[])
 {
@@ -24,6 +25,14 @@ int main(int argc, char *argv[])
     QString dataDir = QFileInfo(QCoreApplication::applicationFilePath())
                           .absolutePath() + QStringLiteral("/data");
     QDir().mkpath(dataDir);
+
+    // 初始化日志系统（在 AppCoordinator 之前，确保启动期日志也能被捕获）
+    QString appDir = QFileInfo(QCoreApplication::applicationFilePath()).absolutePath();
+    QString logDir = appDir + QStringLiteral("/logs");
+    Hold logHold(dataDir);
+    LogManage::init(&logHold, logDir);
+
+    SPDLOG_DEBUG("********************结合ai与间隔重复的英语学习软件--启动**************");
 
     AppConfig config;
     config.dataDir = dataDir;

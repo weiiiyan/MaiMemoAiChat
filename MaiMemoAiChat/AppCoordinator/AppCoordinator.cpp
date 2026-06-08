@@ -9,6 +9,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
+#include <spdlog/spdlog.h>
+
 // ── Hold 存储 key ──
 
 static const QStringList kAppConfigId   = {QStringLiteral("app")};
@@ -38,6 +40,12 @@ bool AppCoordinator::initialize(QObject *uiObject, IUIModule *ui, const AppConfi
     m_uiObject = uiObject;
     m_ui = ui;
     m_config = config;
+
+    SPDLOG_INFO("AppCoordinator initializing: dataDir={}, provider={}, model={}, deck={}",
+                config.dataDir.toStdString(),
+                config.sceneConfig.aiProvider == AiProvider::QianWen ? "QianWen" : "WenXin",
+                config.sceneConfig.model.toStdString(),
+                config.srsConfig.deckName.toStdString());
 
     loadConfig(m_config);
     createSubModules(m_config);
@@ -73,6 +81,8 @@ void AppCoordinator::shutdown()
 {
     if (!m_initialized)
         return;
+
+    SPDLOG_INFO("AppCoordinator shutting down");
 
     // 结束当前活跃会话
     if (!m_currentSessionId.isEmpty() && m_sceneOrchestrator) {
@@ -115,6 +125,7 @@ void AppCoordinator::startReview()
 
     QList<MemEntry> dueEntries = m_dataSync->getDueEntries(m_config.dueEntryLimit);
     if (dueEntries.isEmpty()) {
+        SPDLOG_INFO("AppCoordinator startReview: no due entries");
         if (m_ui) {
             m_ui->appendSystemMessage(
                 QStringLiteral("No due entries. Please sync with Anki first (Anki must be running with AnkiConnect plugin)."));
@@ -122,6 +133,7 @@ void AppCoordinator::startReview()
         return;
     }
 
+    SPDLOG_INFO("AppCoordinator startReview: {} due entries, sceneType={}", dueEntries.size(), static_cast<int>(m_config.defaultSceneType));
     QString sessionId = m_sceneOrchestrator->createSession(
         dueEntries, m_config.defaultSceneType, m_config.sceneConfig);
 
@@ -179,6 +191,7 @@ void AppCoordinator::onSettingsChanged(const SRSConfig &config)
 
 void AppCoordinator::onDataSyncConnected()
 {
+    SPDLOG_INFO("AppCoordinator: DataSync connected");
     if (m_ui) {
         m_ui->showStatus(QStringLiteral("Syncing..."));
         m_ui->appendSystemMessage(QStringLiteral("Anki connected. Starting sync..."));
@@ -190,6 +203,7 @@ void AppCoordinator::onDataSyncConnected()
 
 void AppCoordinator::onDataSyncDisconnected()
 {
+    SPDLOG_INFO("AppCoordinator: DataSync disconnected");
     if (m_ui) {
         m_ui->showStatus(QStringLiteral("Anki not connected"));
         m_ui->appendSystemMessage(QStringLiteral("Anki disconnected. Check if Anki is running with AnkiConnect plugin."));
@@ -198,6 +212,7 @@ void AppCoordinator::onDataSyncDisconnected()
 
 void AppCoordinator::onDataSyncError(const SyncError &error)
 {
+    SPDLOG_WARN("AppCoordinator: DataSync error [{}]: {}", error.code.toStdString(), error.message.toStdString());
     if (m_ui) {
         m_ui->showStatus(QStringLiteral("Error: %1").arg(error.message));
         m_ui->appendSystemMessage(QStringLiteral("Sync error [%1]: %2").arg(error.code, error.message));
@@ -208,6 +223,7 @@ void AppCoordinator::onDataSyncError(const SyncError &error)
 
 void AppCoordinator::onSessionCreated(const QString &sessionId, const QString &openingMessage)
 {
+    SPDLOG_INFO("AppCoordinator: session created {}", sessionId.toStdString());
     if (!m_ui)
         return;
 
@@ -233,6 +249,7 @@ void AppCoordinator::onResponseComplete(const QString &sessionId, const QString 
 
 void AppCoordinator::onSessionError(const QString &sessionId, const QString &error)
 {
+    SPDLOG_ERROR("AppCoordinator: session error {}: {}", sessionId.toStdString(), error.toStdString());
     if (m_ui) {
         m_ui->showMessage(sessionId,
             QStringLiteral("[Error] %1").arg(error));
@@ -241,6 +258,7 @@ void AppCoordinator::onSessionError(const QString &sessionId, const QString &err
 
 void AppCoordinator::onSessionEnded(const QString &sessionId)
 {
+    SPDLOG_INFO("AppCoordinator: session ended {}", sessionId.toStdString());
     if (sessionId == m_currentSessionId)
         m_currentSessionId.clear();
 

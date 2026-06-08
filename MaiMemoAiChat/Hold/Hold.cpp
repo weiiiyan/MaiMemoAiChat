@@ -5,6 +5,8 @@
 #include <QFileInfo>
 #include <QSaveFile>
 
+#include <spdlog/spdlog.h>
+
 Hold::Hold(const QString &dataDir, QObject *parent)
     : QObject(parent)
     , m_dataDir(dataDir)
@@ -14,10 +16,15 @@ Hold::Hold(const QString &dataDir, QObject *parent)
 
 QByteArray Hold::load(const QStringList &id, const QString &name) const
 {
-    QFile file(filePath(id, name));
-    if (!file.open(QIODevice::ReadOnly))
+    QString path = filePath(id, name);
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        SPDLOG_TRACE("Hold::load not found: {}", path.toStdString());
         return {};
-    return file.readAll();
+    }
+    QByteArray data = file.readAll();
+    SPDLOG_TRACE("Hold::load {} ({} bytes)", path.toStdString(), data.size());
+    return data;
 }
 
 void Hold::save(const QStringList &id, const QString &name, const QByteArray &data)
@@ -26,15 +33,23 @@ void Hold::save(const QStringList &id, const QString &name, const QByteArray &da
     QDir().mkpath(QFileInfo(path).absolutePath());
 
     QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly))
+    if (!file.open(QIODevice::WriteOnly)) {
+        SPDLOG_ERROR("Hold::save failed to open: {}", path.toStdString());
         return;
+    }
     file.write(data);
-    file.commit();
+    if (!file.commit()) {
+        SPDLOG_ERROR("Hold::save failed to commit: {}", path.toStdString());
+    }
+    SPDLOG_DEBUG("Hold::save {} ({} bytes)", path.toStdString(), data.size());
 }
 
 bool Hold::remove(const QStringList &id, const QString &name)
 {
-    return QFile::remove(filePath(id, name));
+    QString path = filePath(id, name);
+    bool ok = QFile::remove(path);
+    SPDLOG_DEBUG("Hold::remove {} -> {}", path.toStdString(), ok ? "ok" : "failed");
+    return ok;
 }
 
 bool Hold::exists(const QStringList &id, const QString &name) const

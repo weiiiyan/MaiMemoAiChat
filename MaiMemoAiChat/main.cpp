@@ -17,8 +17,8 @@ int main(int argc, char *argv[])
     QString apiKey = env.value(QStringLiteral("DASHSCOPE_API_KEY"));
 
     if (apiKey.isEmpty()) {
-        qWarning() << "DASHSCOPE_API_KEY env var not set. AI features will not work.";
-        qWarning() << "Set it via: set DASHSCOPE_API_KEY=your-key";
+        SPDLOG_WARN("DASHSCOPE_API_KEY env var not set. AI features will not work.");
+        SPDLOG_WARN("Set it via: set DASHSCOPE_API_KEY=your-key");
     }
 
     // 数据目录放在可执行文件同级

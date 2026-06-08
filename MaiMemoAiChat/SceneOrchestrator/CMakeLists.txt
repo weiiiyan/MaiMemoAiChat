@@ -11,4 +11,4 @@ add_library(SceneOrchestrator STATIC
 )
 
 target_include_directories(SceneOrchestrator PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(SceneOrchestrator PUBLIC Qt::Core Qt::Network DataSync)
+target_link_libraries(SceneOrchestrator PUBLIC Qt::Core Qt::Network DataSync PRIVATE spdlog)

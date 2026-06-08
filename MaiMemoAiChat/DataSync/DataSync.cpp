@@ -8,6 +8,8 @@
 #include <QJsonObject>
 #include <algorithm>
 
+#include <spdlog/spdlog.h>
+
 DataSync::DataSync(ISRSEngine *engine, Hold *hold, QObject *parent)
     : IDataSync(parent)
     , m_engine(engine)
@@ -66,6 +68,7 @@ DataSync::DataSync(ISRSEngine *engine, Hold *hold, QObject *parent)
 void DataSync::connectToEngine(const SRSConfig &config)
 {
     m_config = config;
+    SPDLOG_INFO("DataSync connecting to engine: deck={}, url={}", config.deckName.toStdString(), config.url.toStdString());
     loadMetaFromHold();
     loadPendingFromHold();
     loadCacheFromHold();
@@ -74,6 +77,7 @@ void DataSync::connectToEngine(const SRSConfig &config)
 
 void DataSync::disconnectFromEngine()
 {
+    SPDLOG_INFO("DataSync disconnecting from engine");
     m_engine->disconnectFromEngine();
 }
 
@@ -216,14 +220,17 @@ void DataSync::answerCards(const QList<AnswerRecord> &answers)
 
 void DataSync::pullFromEngine()
 {
-    if (m_syncCtx && m_syncCtx->step != SyncStep::Idle)
+    if (m_syncCtx && m_syncCtx->step != SyncStep::Idle) {
+        SPDLOG_DEBUG("DataSync pullFromEngine skipped: sync already in progress");
         return; // 已有同步在进行中
+    }
 
     if (!m_engine->isConnected()) {
         reportError(QStringLiteral("pull"), QStringLiteral("Engine not connected"));
         return;
     }
 
+    SPDLOG_INFO("DataSync pullFromEngine starting for deck={}", m_config.deckName.toStdString());
     m_syncCtx = std::make_shared<SyncContext>();
     m_syncCtx->report.syncAt = QDateTime::currentMSecsSinceEpoch();
     m_syncCtx->step = SyncStep::WaitingForNoteIds;
@@ -248,6 +255,7 @@ void DataSync::pushToEngine()
     }
 
     int pendingCount = m_pendingAnswers.size();
+    SPDLOG_INFO("DataSync pushToEngine: {} pending answers", pendingCount);
     auto conn = std::make_shared<QMetaObject::Connection>();
     *conn = connect(m_engine, &ISRSEngine::reviewsSubmitted, this,
         [this, pendingCount, conn](int submitted) {
@@ -273,6 +281,7 @@ void DataSync::fullSync()
         return;
     }
 
+    SPDLOG_INFO("DataSync fullSync starting ({} pending answers)", m_pendingAnswers.size());
     if (m_pendingAnswers.isEmpty()) {
         pullFromEngine();
         return;
@@ -306,9 +315,11 @@ void DataSync::onSyncNoteIdsReady(const QList<qint64> &ids)
         return;
 
     m_syncCtx->allNoteIds = ids;
+    SPDLOG_DEBUG("DataSync sync step: got {} note ids", ids.size());
 
     if (ids.isEmpty()) {
         // 牌组为空，直接结束
+        SPDLOG_INFO("DataSync sync finished: deck is empty");
         m_syncCtx->report.syncAt = QDateTime::currentMSecsSinceEpoch();
         m_lastReport = m_syncCtx->report;
         m_syncCtx.reset();
@@ -327,6 +338,7 @@ void DataSync::onSyncCardIdsReady(const QList<qint64> &ids)
         return;
 
     m_syncCtx->allCardIds = ids;
+    SPDLOG_DEBUG("DataSync sync step: got {} card ids", ids.size());
     m_syncCtx->step = SyncStep::WaitingForNotesInfo;
     m_engine->fetchNotesInfo(m_syncCtx->allNoteIds);
 }
@@ -337,6 +349,7 @@ void DataSync::onSyncNotesInfoReady(const QList<MemEntry> &entries)
         return;
 
     m_syncCtx->notesList = entries;
+    SPDLOG_DEBUG("DataSync sync step: got {} notes info", entries.size());
 
     if (m_syncCtx->allCardIds.isEmpty()) {
         // 无卡片数据，直接用 notes 结果
@@ -352,6 +365,7 @@ void DataSync::onSyncNotesInfoReady(const QList<MemEntry> &entries)
         m_lastReport = m_syncCtx->report;
         saveMetaToHold();
         m_syncCtx.reset();
+        SPDLOG_INFO("DataSync sync finished: {} notes (no cards)", entries.size());
         emit entriesChanged(m_entriesByNoteId.keys());
         emit syncFinished(m_lastReport);
         return;
@@ -391,12 +405,14 @@ void DataSync::onSyncCardsInfoReady(const QList<MemEntry> &entries)
     QList<qint64> changedIds = m_entriesByNoteId.keys();
     m_syncCtx.reset();
 
+    SPDLOG_INFO("DataSync sync finished: {} merged entries", merged.size());
     emit entriesChanged(changedIds);
     emit syncFinished(m_lastReport);
 }
 
 void DataSync::finishSyncWithError(const QString &error)
 {
+    SPDLOG_ERROR("DataSync sync failed: {}", error.toStdString());
     if (m_syncCtx) {
         m_syncCtx->report.errors.append(error);
         m_syncCtx->report.syncAt = QDateTime::currentMSecsSinceEpoch();
@@ -590,5 +606,6 @@ QList<MemEntry> DataSync::deserializeEntries(const QByteArray &data)
 
 void DataSync::reportError(const QString &code, const QString &message)
 {
+    SPDLOG_WARN("DataSync error [{}]: {}", code.toStdString(), message.toStdString());
     emit errorOccurred({code, message});
 }

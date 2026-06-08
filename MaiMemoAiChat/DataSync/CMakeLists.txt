@@ -9,4 +9,4 @@ add_library(DataSync STATIC
 )
 
 target_include_directories(DataSync PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(DataSync PUBLIC Qt::Core Qt::Network Hold)
+target_link_libraries(DataSync PUBLIC Qt::Core Qt::Network Hold PRIVATE spdlog)

@@ -20,8 +20,8 @@ qt_add_executable(MaiMemoAiChat
 )
 
 # spdlog 宏（SPDLOG_DEBUG / SPDLOG_TRACE 等）的编译期级别
-# 设为 DEBUG，确保调试日志不会被编译优化掉
-target_compile_definitions(MaiMemoAiChat PRIVATE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+# 设为 TRACE，全局生效，确保所有模块的调试日志不会被编译优化掉
+add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 
 target_link_libraries(MaiMemoAiChat
     PRIVATE

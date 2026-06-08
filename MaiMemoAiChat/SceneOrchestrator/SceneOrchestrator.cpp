@@ -5,6 +5,8 @@
 #include <QUuid>
 #include <QDateTime>
 
+#include <spdlog/spdlog.h>
+
 // ── System Prompt 模板 ──
 
 static const char *kReadingPrompt = R"(
@@ -128,6 +130,10 @@ QString SceneOrchestrator::createSession(const QList<MemEntry> &entries,
     connect(ai, &IAIManager::responseError,
             this, &SceneOrchestrator::onAiResponseError);
 
+    SPDLOG_INFO("SceneOrchestrator created session {}: type={}, entries={}, provider={}",
+                sessionId.toStdString(), static_cast<int>(sceneType),
+                entries.size(), static_cast<int>(config.aiProvider));
+
     // 发送初始消息（system prompt + 启动指令），获取 AI 开场白
     QList<ChatMessage> messages;
     ChatMessage sysMsg;
@@ -161,6 +167,8 @@ void SceneOrchestrator::sendMessage(const QString &sessionId, const QString &con
     if (!ai || ai->isBusy())
         return;
 
+    SPDLOG_DEBUG("SceneOrchestrator sendMessage session={}, round={}", sessionId.toStdString(), session.roundCount);
+
     // 追加用户消息到历史
     ChatMessage userMsg;
     userMsg.role = QStringLiteral("user");
@@ -182,6 +190,9 @@ void SceneOrchestrator::endSession(const QString &sessionId)
 {
     if (!m_sessions.contains(sessionId))
         return;
+
+    SPDLOG_INFO("SceneOrchestrator ending session {} (rounds={})",
+                sessionId.toStdString(), m_sessions[sessionId].roundCount);
 
     // 停止 AI 并清理
     IAIManager *ai = m_aiManagers.take(sessionId);
@@ -206,8 +217,10 @@ SceneSession SceneOrchestrator::getSession(const QString &sessionId) const
 void SceneOrchestrator::onAiResponseStreaming(const QString &chunk)
 {
     QString sid = sessionIdForSender();
-    if (!sid.isEmpty())
+    if (!sid.isEmpty()) {
+        SPDLOG_TRACE("SceneOrchestrator streaming chunk session={}, len={}", sid.toStdString(), chunk.size());
         emit responseStreaming(sid, chunk);
+    }
 }
 
 void SceneOrchestrator::onAiResponseComplete(const QString &fullMessage)
@@ -215,6 +228,8 @@ void SceneOrchestrator::onAiResponseComplete(const QString &fullMessage)
     QString sid = sessionIdForSender();
     if (sid.isEmpty())
         return;
+
+    SPDLOG_DEBUG("SceneOrchestrator response complete session={}, len={}", sid.toStdString(), fullMessage.size());
 
     SceneSession &session = m_sessions[sid];
 
@@ -236,8 +251,10 @@ void SceneOrchestrator::onAiResponseComplete(const QString &fullMessage)
 void SceneOrchestrator::onAiResponseError(const QString &error)
 {
     QString sid = sessionIdForSender();
-    if (!sid.isEmpty())
+    if (!sid.isEmpty()) {
+        SPDLOG_ERROR("SceneOrchestrator AI error session={}: {}", sid.toStdString(), error.toStdString());
         emit sessionError(sid, error);
+    }
 }
 
 // ── Private Helpers ──

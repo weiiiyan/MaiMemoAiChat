@@ -5,6 +5,8 @@
 #include <QJsonObject>
 #include <QNetworkReply>
 
+#include <spdlog/spdlog.h>
+
 AnkiConnectEngine::AnkiConnectEngine(QObject *parent)
     : ISRSEngine(parent)
     , m_nam(new QNetworkAccessManager(this))
@@ -15,6 +17,7 @@ void AnkiConnectEngine::connectToEngine(const SRSConfig &config)
 {
     m_url = config.url;
     m_apiVersion = config.apiVersion;
+    SPDLOG_INFO("AnkiConnect connecting to {} (v{})", config.url.toStdString(), config.apiVersion);
     // 调用 version API 验证 AnkiConnect 是否可用
     QNetworkReply *reply = sendRequest(QStringLiteral("version"), QJsonObject());
     reply->setProperty("action", QStringLiteral("version"));
@@ -25,16 +28,20 @@ void AnkiConnectEngine::connectToEngine(const SRSConfig &config)
         if (handleResponseError(resp))
             return;
         m_connected = (resp.value("result").toInt() >= 4); // AnkiConnect v4+
-        if (m_connected)
+        if (m_connected) {
+            SPDLOG_INFO("AnkiConnect connected successfully");
             emit connected();
-        else
+        } else {
+            SPDLOG_ERROR("AnkiConnect version too old or unavailable");
             emit engineError(QStringLiteral("AnkiConnect version too old or unavailable"));
+        }
     });
 }
 
 void AnkiConnectEngine::disconnectFromEngine()
 {
     m_connected = false;
+    SPDLOG_INFO("AnkiConnect disconnected");
     emit disconnected(QStringLiteral("User disconnected"));
 }
 
@@ -117,6 +124,7 @@ void AnkiConnectEngine::fetchNoteIds(const QString &query)
         QList<qint64> ids;
         for (const QJsonValue &v : resp.value("result").toArray())
             ids.append(static_cast<qint64>(v.toDouble()));
+        SPDLOG_DEBUG("AnkiConnect findNotes returned {} ids", ids.size());
         emit noteIdsReady(ids);
     });
 }
@@ -134,6 +142,7 @@ void AnkiConnectEngine::fetchCardIds(const QString &query)
         QList<qint64> ids;
         for (const QJsonValue &v : resp.value("result").toArray())
             ids.append(static_cast<qint64>(v.toDouble()));
+        SPDLOG_DEBUG("AnkiConnect findCards returned {} ids", ids.size());
         emit cardIdsReady(ids);
     });
 }
@@ -165,6 +174,7 @@ void AnkiConnectEngine::fetchNotesInfo(const QList<qint64> &noteIds)
                 entry.fields[it.key()] = it.value().toObject().value("value").toString();
             entries.append(entry);
         }
+        SPDLOG_DEBUG("AnkiConnect notesInfo returned {} entries", entries.size());
         emit notesInfoReady(entries);
     });
 }
@@ -185,6 +195,7 @@ void AnkiConnectEngine::fetchCardsInfo(const QList<qint64> &cardIds)
         QList<MemEntry> entries;
         for (const QJsonValue &v : resp.value("result").toArray())
             entries.append(parseCardInfo(v.toObject()));
+        SPDLOG_DEBUG("AnkiConnect cardsInfo returned {} entries", entries.size());
         emit cardsInfoReady(entries);
     });
 }
@@ -296,6 +307,7 @@ void AnkiConnectEngine::submitReviews(const QList<AnswerRecord> &answers)
         QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
         QJsonObject resp = doc.object();
         if (handleResponseError(resp)) return;
+        SPDLOG_DEBUG("AnkiConnect answerCards submitted {} reviews", answers.size());
         emit reviewsSubmitted(answers.size());
     });
 }
@@ -315,11 +327,15 @@ QNetworkReply *AnkiConnectEngine::sendRequest(const QString &action,
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
     req.setTransferTimeout(10000); // 10s 超时，避免永久挂起
     QNetworkReply *reply = m_nam->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+    SPDLOG_DEBUG("AnkiConnect POST {} -> action={}", m_url.toStdString(), action.toStdString());
 
     // 网络层错误转发为 engineError，避免调用方永久等待
     connect(reply, &QNetworkReply::errorOccurred, this, [this, reply](QNetworkReply::NetworkError) {
-        if (!reply->errorString().isEmpty())
+        if (!reply->errorString().isEmpty()) {
+            SPDLOG_ERROR("AnkiConnect network error: {} {}", reply->url().toString().toStdString(),
+                         reply->errorString().toStdString());
             emit engineError(QStringLiteral("[%1] %2").arg(reply->url().toString(), reply->errorString()));
+        }
     });
 
     return reply;
@@ -329,8 +345,10 @@ bool AnkiConnectEngine::handleResponseError(const QJsonObject &response)
 {
     if (response.contains("error") && !response.value("error").isNull()) {
         QString err = response.value("error").toString();
-        if (!err.isEmpty())
+        if (!err.isEmpty()) {
+            SPDLOG_WARN("AnkiConnect API error: {}", err.toStdString());
             emit engineError(err);
+        }
         return true;
     }
     return false;

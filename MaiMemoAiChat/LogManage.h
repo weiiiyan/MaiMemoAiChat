@@ -128,13 +128,30 @@ inline void init(Hold *hold, const QString &logDir)
     // 5. 设置日志格式
     //    %Y-%m-%d %H:%M:%S.%e = 时间戳（毫秒）
     //    %^%l%$               = 彩色级别
+    //    %n                   = logger 名称（用于模块归属）
     //    %t                   = 线程 ID
     //    %s:%#                = 源文件:行号
     //    %!                   = 函数名
     //    %v                   = 实际日志消息
     spdlog::set_pattern(
-        QStringLiteral("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [thread %t] [%s:%#] [%!] %v")
+        QStringLiteral("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%n] [thread %t] [%s:%#] [%!] %v")
             .toStdString());
+
+    // 6. 为各模块创建命名 logger，共享同一对 sink
+    auto sinks = logger->sinks();
+    auto makeModuleLogger = [&sinks](const std::string& name) {
+        auto l = std::make_shared<spdlog::logger>(name, sinks.begin(), sinks.end());
+        l->set_level(spdlog::level::trace);      // 不限流，由各 sink 独立过滤
+        l->flush_on(spdlog::level::debug);
+        spdlog::register_logger(l);
+    };
+    makeModuleLogger("AppCoordinator");
+    makeModuleLogger("DataSync");
+    makeModuleLogger("AnkiConnect");
+    makeModuleLogger("Hold");
+    makeModuleLogger("SceneOrchestrator");
+    makeModuleLogger("QianWenAI");
+    makeModuleLogger("WenXinAI");
 }
 
 } // namespace LogManage

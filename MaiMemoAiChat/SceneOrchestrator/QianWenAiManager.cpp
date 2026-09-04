@@ -6,6 +6,13 @@
 
 #include <spdlog/spdlog.h>
 
+namespace {
+spdlog::logger* logger() {
+    static auto instance = spdlog::get("QianWenAI");
+    return instance.get();
+}
+} // namespace
+
 QianWenAiManager::QianWenAiManager(QObject *parent)
     : IAIManager(parent)
     , m_nam(new QNetworkAccessManager(this))
@@ -18,13 +25,13 @@ void QianWenAiManager::configure(const SceneConfig &config)
     m_model = config.model.isEmpty()
         ? QStringLiteral("qwen-max")
         : config.model;
-    SPDLOG_INFO("QianWenAiManager configured: model={}", m_model.toStdString());
+    SPDLOG_LOGGER_INFO(logger(), "configured: model={}", m_model.toStdString());
 }
 
 void QianWenAiManager::sendMessage(const QList<ChatMessage> &messages)
 {
     if (m_config.apiKey.isEmpty()) {
-        SPDLOG_WARN("QianWenAiManager sendMessage: API key not configured");
+        SPDLOG_LOGGER_WARN(logger(), "sendMessage: API key not configured");
         emit responseError(QStringLiteral("通义千问 API Key 未配置"));
         return;
     }
@@ -40,7 +47,7 @@ void QianWenAiManager::doSendMessage(const QList<ChatMessage> &messages)
     m_streamBuffer.clear();
     m_fullResponse.clear();
 
-    SPDLOG_DEBUG("QianWenAiManager sending {} messages to model={}", messages.size(), m_model.toStdString());
+    SPDLOG_LOGGER_DEBUG(logger(), "sending {} messages to model={}", messages.size(), m_model.toStdString());
 
     QJsonObject body = buildRequestBody(messages, m_config);
 
@@ -144,10 +151,10 @@ void QianWenAiManager::onChatReplyFinished()
     m_busy = false;
 
     if (m_fullResponse.isEmpty()) {
-        SPDLOG_WARN("QianWenAiManager response empty");
+        SPDLOG_LOGGER_WARN(logger(), "response empty");
         emit responseError(QStringLiteral("通义千问返回空内容"));
     } else {
-        SPDLOG_DEBUG("QianWenAiManager response complete: {} chars", m_fullResponse.size());
+        SPDLOG_LOGGER_DEBUG(logger(), "response complete: {} chars", m_fullResponse.size());
         emit responseComplete(m_fullResponse);
     }
 }
@@ -159,7 +166,7 @@ void QianWenAiManager::onChatErrorOccurred(QNetworkReply::NetworkError code)
         return;
 
     QString err = m_activeReply->errorString();
-    SPDLOG_ERROR("QianWenAiManager chat error: {}", err.toStdString());
+    SPDLOG_LOGGER_ERROR(logger(), "chat error: {}", err.toStdString());
     m_activeReply->deleteLater();
     m_activeReply = nullptr;
     m_busy = false;
@@ -169,7 +176,7 @@ void QianWenAiManager::onChatErrorOccurred(QNetworkReply::NetworkError code)
 void QianWenAiManager::stopResponse()
 {
     if (m_activeReply) {
-        SPDLOG_DEBUG("QianWenAiManager stopping response");
+        SPDLOG_LOGGER_DEBUG(logger(), "stopping response");
         m_activeReply->abort();
         m_activeReply->deleteLater();
         m_activeReply = nullptr;

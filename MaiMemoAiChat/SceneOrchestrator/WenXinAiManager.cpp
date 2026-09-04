@@ -7,6 +7,13 @@
 
 #include <spdlog/spdlog.h>
 
+namespace {
+spdlog::logger* logger() {
+    static auto instance = spdlog::get("WenXinAI");
+    return instance.get();
+}
+} // namespace
+
 WenXinAiManager::WenXinAiManager(QObject *parent)
     : IAIManager(parent)
     , m_nam(new QNetworkAccessManager(this))
@@ -20,7 +27,7 @@ void WenXinAiManager::configure(const SceneConfig &config)
         ? QStringLiteral("ernie-4.0-turbo-128k")
         : config.model;
 
-    SPDLOG_INFO("WenXinAiManager configured: model={}", m_model.toStdString());
+    SPDLOG_LOGGER_INFO(logger(), "configured: model={}", m_model.toStdString());
     fetchAccessToken();
 }
 
@@ -49,7 +56,7 @@ void WenXinAiManager::onTokenReplyFinished()
     reply->deleteLater();
 
     if (reply->error() != QNetworkReply::NoError) {
-        SPDLOG_ERROR("WenXin access_token request failed: {}", reply->errorString().toStdString());
+        SPDLOG_LOGGER_ERROR(logger(), "access_token request failed: {}", reply->errorString().toStdString());
         emit responseError(QStringLiteral("获取文心 access_token 失败: %1").arg(reply->errorString()));
         return;
     }
@@ -58,22 +65,22 @@ void WenXinAiManager::onTokenReplyFinished()
     QJsonObject obj = doc.object();
 
     if (obj.contains(QStringLiteral("error_description"))) {
-        SPDLOG_ERROR("WenXin access_token error: {}",
-                     obj.value(QStringLiteral("error_description")).toString().toStdString());
+        SPDLOG_LOGGER_ERROR(logger(), "access_token error: {}",
+                           obj.value(QStringLiteral("error_description")).toString().toStdString());
         emit responseError(QStringLiteral("获取文心 access_token 失败: %1")
                                .arg(obj.value(QStringLiteral("error_description")).toString()));
         return;
     }
 
     m_accessToken = obj.value(QStringLiteral("access_token")).toString();
-    SPDLOG_INFO("WenXin access_token obtained successfully");
+    SPDLOG_LOGGER_INFO(logger(), "access_token obtained successfully");
 }
 
 void WenXinAiManager::sendMessage(const QList<ChatMessage> &messages)
 {
     if (m_accessToken.isEmpty()) {
         // token 尚未获取，延迟发送
-        SPDLOG_WARN("WenXinAiManager sendMessage: access_token not ready");
+        SPDLOG_LOGGER_WARN(logger(), "sendMessage: access_token not ready");
         QMetaObject::Connection *conn = new QMetaObject::Connection;
         *conn = connect(this, &WenXinAiManager::responseError, this,
                         [conn]() { disconnect(*conn); delete conn; });
@@ -92,7 +99,7 @@ void WenXinAiManager::doSendMessage(const QList<ChatMessage> &messages)
     m_streamBuffer.clear();
     m_fullResponse.clear();
 
-    SPDLOG_DEBUG("WenXinAiManager sending {} messages to model={}", messages.size(), m_model.toStdString());
+    SPDLOG_LOGGER_DEBUG(logger(), "sending {} messages to model={}", messages.size(), m_model.toStdString());
 
     QJsonObject body = buildRequestBody(messages, m_config);
 
@@ -186,10 +193,10 @@ void WenXinAiManager::onChatReplyFinished()
     m_busy = false;
 
     if (m_fullResponse.isEmpty()) {
-        SPDLOG_WARN("WenXinAiManager response empty");
+        SPDLOG_LOGGER_WARN(logger(), "response empty");
         emit responseError(QStringLiteral("文心一言返回空内容"));
     } else {
-        SPDLOG_DEBUG("WenXinAiManager response complete: {} chars", m_fullResponse.size());
+        SPDLOG_LOGGER_DEBUG(logger(), "response complete: {} chars", m_fullResponse.size());
         emit responseComplete(m_fullResponse);
     }
 }
@@ -201,7 +208,7 @@ void WenXinAiManager::onChatErrorOccurred(QNetworkReply::NetworkError code)
         return;
 
     QString err = m_activeReply->errorString();
-    SPDLOG_ERROR("WenXinAiManager chat error: {}", err.toStdString());
+    SPDLOG_LOGGER_ERROR(logger(), "chat error: {}", err.toStdString());
     m_activeReply->deleteLater();
     m_activeReply = nullptr;
     m_busy = false;
@@ -211,7 +218,7 @@ void WenXinAiManager::onChatErrorOccurred(QNetworkReply::NetworkError code)
 void WenXinAiManager::stopResponse()
 {
     if (m_activeReply) {
-        SPDLOG_DEBUG("WenXinAiManager stopping response");
+        SPDLOG_LOGGER_DEBUG(logger(), "stopping response");
         m_activeReply->abort();
         m_activeReply->deleteLater();
         m_activeReply = nullptr;

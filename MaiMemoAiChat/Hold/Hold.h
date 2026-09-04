@@ -26,8 +26,8 @@ public:
     /// 读取指定 key 的数据，若不存在返回空 QByteArray
     QByteArray load(const QStringList &id, const QString &name) const;
 
-    /// 同步写入数据（原子写入）
-    void save(const QStringList &id, const QString &name, const QByteArray &data);
+    /// 同步写入数据（原子写入），成功返回 true
+    bool save(const QStringList &id, const QString &name, const QByteArray &data);
 
     /// 删除指定 key 的数据
     bool remove(const QStringList &id, const QString &name);

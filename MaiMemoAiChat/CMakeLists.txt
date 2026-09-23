@@ -1,48 +1,22 @@
-﻿cmake_minimum_required(VERSION 3.19)
-project(MaiMemoAiChat LANGUAGES CXX)
+﻿cmake_minimum_required(VERSION 3.16)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network)
+project(MaiMemoAiChat VERSION 0.1 LANGUAGES CXX)
 
-qt_standard_project_setup()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_subdirectory(spdlog)
-add_subdirectory(Hold)
-add_subdirectory(DataSync)
-add_subdirectory(SceneOrchestrator)
-add_subdirectory(AppCoordinator)
+find_package(Qt6 REQUIRED COMPONENTS Quick)
 
-qt_add_executable(MaiMemoAiChat
-    WIN32 MACOSX_BUNDLE
-    main.cpp
-    mainwindow.cpp
-    mainwindow.h
-    LogManage.h
-)
+qt_standard_project_setup(REQUIRES 6.10)
 
-# spdlog 宏（SPDLOG_DEBUG / SPDLOG_TRACE 等）的编译期级别
-# 设为 TRACE，全局生效，确保所有模块的调试日志不会被编译优化掉
-add_compile_definitions(SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+# QML 模块的构建产物按其 URI 组织（如 qml/MaiMemoAiChat/Ui/），不再跟随源码目录。
+# 这样源码目录可以自由布局，同时 qmllint/qmlcachegen 会自动把该目录加入 import path。
+set(QT_QML_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/qml)
 
-target_link_libraries(MaiMemoAiChat
-    PRIVATE
-        Qt::Core
-        Qt::Widgets
-        spdlog
-        Hold
-        DataSync
-        SceneOrchestrator
-        AppCoordinator
-)
+# Content of downloaded design from Figma to Qt or similar
+if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/importedcontent/CMakeLists.txt")
+    add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/importedcontent)
+endif()
 
-install(TARGETS MaiMemoAiChat
-    BUNDLE  DESTINATION .
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-)
-
-qt_generate_deploy_app_script(
-    TARGET MaiMemoAiChat
-    OUTPUT_SCRIPT deploy_script
-    NO_UNSUPPORTED_PLATFORM_ERROR
-)
-install(SCRIPT ${deploy_script})
+# ui 必须先于 Main：Main 的可执行目标要链接 mai_ui 生成出的插件目标 mai_uiplugin
+add_subdirectory(framework/ui)
+add_subdirectory(framework/Main)

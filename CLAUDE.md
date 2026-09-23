@@ -1,142 +1,72 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件为 Claude Code 在本仓库中处理代码时提供指导。
 
-## Common guidelines
+## 通用准则
 
-### 1. Think Before Coding
+### 1. 先思考，再编码
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**不要假设。不要隐藏困惑。把权衡摆到台面上。**
 
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+在动手实现之前：
+- 明确说出你的假设。不确定就问。
+- 如果存在多种理解，全部列出——不要默默挑一个。
+- 如果有更简单的做法，说出来。该反驳时就反驳。
+- 如果有不清楚的地方，停下来。指出困惑之处。提问。
 
-### 2. Simplicity First
+### 2. 简单优先
 
-**Minimum code that solves the problem. Nothing speculative.**
+**用最少的代码解决问题。不做任何投机性设计。**
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+- 不实现未被要求的功能。
+- 不为一次性代码做抽象。
+- 不做未被要求的"灵活性"或"可配置性"。
+- 不为不可能发生的场景写错误处理。
+- 如果你写了 200 行而其实 50 行就够，重写它。
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+问自己："资深工程师会觉得这过度设计吗？"如果会，就简化。
 
-### 3. Surgical Changes
+### 3. 外科手术式改动
 
-**Touch only what you must. Clean up only your own mess.**
+**只碰必须碰的地方。只收拾自己弄乱的东西。**
 
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+编辑既有代码时：
+- 不要"顺手改进"相邻的代码、注释或格式。
+- 不要重构没坏的东西。
+- 跟随既有风格，即使你自己会写得不一样。
+- 如果发现无关的死代码，提一句——不要删。
 
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
+当你的改动产生孤儿代码时：
+- 删除因**你的**改动而不再被使用的 import／变量／函数。
+- 不要删除早已存在的死代码，除非被要求。
 
-The test: Every changed line should trace directly to the user's request.
+检验标准：每一行改动都应能直接追溯到用户的请求。
 
-### 4. Goal-Driven Execution
+### 4. 目标驱动执行
 
-**Define success criteria. Loop until verified.**
+**定义成功标准。循环直到验证通过。**
 
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
+把任务转成可验证的目标：
+- "加校验" → "先为非法输入写测试，再让这些测试通过"
+- "修这个 bug" → "先写一个能复现它的测试，再让它通过"
+- "重构 X" → "确保重构前后测试都通过"
 
-For multi-step tasks, state a brief plan:
+多步任务要先给出简要计划：
 ```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-## Project Overview
-
-MaiMemoAiChat is a Qt (C++ + QML) desktop application for English learning. It combines spaced repetition (from 墨墨背单词/Anki engines) with AI-powered learning scenarios for listening, speaking, reading, and writing practice.
-
-**Status**: Early implementation — source code lives under `MaiMemoAiChat/`. Documentation is in `docs/` (git submodule).
-
-## Build
-
-```bash
-cd MaiMemoAiChat
-cmake -B build -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH=<path-to-qt6>
-cmake --build build
+1. [步骤] → 验证：[检查项]
+2. [步骤] → 验证：[检查项]
+3. [步骤] → 验证：[检查项]
 ```
 
-Requires: Qt 6.5+ (Core, Widgets), CMake 3.19+, C++17.
+### 5. 对使用者用中文
 
-## Architecture (5 Modules)
+**一切给使用者看的文字都用中文。**
 
-```
-UI ──> AppCoordinator ──> SceneOrchestrator ──> AI Service
-                     │──> DataSync ──> SpacedRepetitionEngine
-                     └──> Hold (Persistence)
-```
+- 解释、提问、计划、进度更新、总结都用中文。
+- 代码、命令、路径、标识符、报错原文保持原样，不翻译。
 
-| Module | Interface | Responsibility |
-| ------ | --------- | -------------- |
-| UI | IUIModule | QML interface — chat view, session list, input area |
-| AppCoordinator | IAppCoordinator | Defines interaction interfaces, coordinates workflows across modules |
-| Hold | Hold | Centralized file-based storage, synchronous atomic writes — see interface at `docs/02-系统设计/2.2-接口设计/持久化模块接口.md` |
-| SceneOrchestrator | ISceneOrchestrator | Abstracts AI calls; manages interactive learning sessions (reading/writing/listening/speaking) |
-| DataSync | IDataSync | Abstracts SRS engine interface (墨墨背单词/Anki); syncs memory data bidirectionally via MemEntry |
+## 项目概述
 
-Key architectural constraints:
+MaiMemoAiChat 是一个用于英语学习的 Qt（C++ + QML）桌面应用。它把间隔重复（来自墨墨背单词／Anki 引擎）与 AI 驱动的学习场景结合起来，用于听、说、读、写练习。
 
-- **All storage goes through Hold** — no module touches the filesystem directly.
-- **Hold uses synchronous writes** — all I/O is direct, using QSaveFile for atomic writes.
-- **Hold stores binary blobs** — serialization is the caller's responsibility. Keys are `(namespace: List<String>, name: String)` pairs, where namespace is a path like `["sessions", "session-abc"]`.
-
-## Source Layout
-
-```
-MaiMemoAiChat/
-├── CMakeLists.txt       # Top-level build
-├── main.cpp / mainwindow.*  # Qt app entry point (scaffold)
-├── Hold/                # Persistence module (in progress)
-│   ├── Hold.h / Hold.cpp
-│   └── CMakeLists.txt
-└── (other modules TBD)
-```
-
-Modules map to the planned `src/` structure from docs: `core/` (Hold, AppCoordinator), `services/` (SceneOrchestrator, DataSync), `ui/` (QML), `models/` (MemEntry, etc.), `utils/`.
-
-## Tech Stack
-
-- **Language**: C++17, QML (Qt 6.x)
-- **Build**: CMake
-- **AI**: Anthropic Claude API (streaming)
-- **Storage**: File-based (binary, one file per key under namespace directories)
-- **SRS Interface**: Custom adapter for 墨墨背单词 / Anki
-
-## Coding Conventions
-
-- **Class names**: `PascalCase` — interfaces prefixed with `I` (e.g., `IDataSync`), except `Hold` which follows the PlantUML spec
-- **Methods**: `camelCase`
-- **Member variables**: `m_camelCase`
-- **Constants**: `UPPER_SNAKE_CASE`
-- **QML component files**: `PascalCase.qml`
-- **Commits**: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`)
-- **No hardcoded API keys** — all credentials via environment or config file
-- **Comments**: Doxygen/JavaDoc 风格 (`/** ... */` / `@brief @param @return`)，关键逻辑和非显而易见的设计决策用中文注释
-
-## Docs
-
-Documentation is maintained as a [separate repo](https://github.com/weiiiyan/MaiMemoAiChatDoc) mounted as a git submodule under `docs/`. Key docs:
-
-| Doc | Content |
-| --- | ------- |
-| `docs/02-系统设计/2.1-架构设计/2.1-架构设计.md` | Module responsibilities |
-| `docs/02-系统设计/2.2-接口设计/持久化模块接口.md` | Hold interface spec |
-| `docs/02-系统设计/2.2-接口设计/数据同步模块接口设计.md` | IDataSync + MemEntry spec |
-| `docs/02-系统设计/2.2-接口设计/学习场景编排模块接口设计.md` | ISceneOrchestrator + SceneSession spec |
-| `docs/02-系统设计/2.2-接口设计/应用协调模块接口设计.md` | IAppCoordinator spec |
+**状态**：早期实现阶段——源代码位于 `MaiMemoAiChat/` 下。文档在 `docs/`（git 子模块）。

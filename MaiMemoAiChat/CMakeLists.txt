@@ -17,6 +17,11 @@ if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/importedcontent/CMakeLists.txt")
     add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/importedcontent)
 endif()
 
+add_subdirectory(domain)
+
 # ui 必须先于 Main：Main 的可执行目标要链接 mai_ui 生成出的插件目标 mai_uiplugin
 add_subdirectory(framework/ui)
 add_subdirectory(framework/Main)
+
+enable_testing()
+add_subdirectory(tests)
